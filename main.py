@@ -18,7 +18,12 @@ GROUPS = ["Group A", "Group B", "Group C", "Group D"]
 
 FILE = "count.json"
 
+# =========================
+# COUNTER
+# =========================
+
 def get_count():
+
     if not os.path.exists(FILE):
         return 0
 
@@ -26,19 +31,28 @@ def get_count():
         with open(FILE, "r") as f:
             data = json.load(f)
             return data.get("count", 0)
+
     except:
         return 0
 
+
 def save_count(count):
+
     with open(FILE, "w") as f:
         json.dump({"count": count}, f)
 
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}")
 
-@bot.event
-async def on_member_join(member):
+# =========================
+# ASSIGN GROUP FUNCTION
+# =========================
+
+async def assign_group(member):
+
+    existing_roles = [role.name for role in member.roles]
+
+    # already assigned
+    if any(group in existing_roles for group in GROUPS):
+        return
 
     count = get_count()
 
@@ -57,5 +71,45 @@ async def on_member_join(member):
         )
     except:
         pass
+
+    print(f"{member.name} assigned to {group}")
+
+
+# =========================
+# READY
+# =========================
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
+
+
+# =========================
+# NORMAL JOIN EVENT
+# =========================
+
+@bot.event
+async def on_member_join(member):
+
+    await assign_group(member)
+
+
+# =========================
+# AUTO RECOVERY SYSTEM
+# =========================
+
+@bot.event
+async def on_message(message):
+
+    if message.author.bot:
+        return
+
+    member = message.author
+
+    # if bot missed join because hosting slept
+    await assign_group(member)
+
+    await bot.process_commands(message)
+
 
 bot.run(TOKEN)
