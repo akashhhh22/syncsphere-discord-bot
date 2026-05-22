@@ -1,26 +1,75 @@
+from flask import Flask
+from threading import Thread
+
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+
 import os
 import json
+
+# =========================================
+# KEEP RENDER ALIVE
+# =========================================
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "SyncSphere Bot is Running!"
+
+def run_web():
+    app.run(host='0.0.0.0', port=10000)
+
+def keep_alive():
+    t = Thread(target=run_web)
+    t.start()
+
+# =========================================
+# LOAD ENV
+# =========================================
 
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
 
+# =========================================
+# DISCORD INTENTS
+# =========================================
+
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+# =========================================
+# BOT SETUP
+# =========================================
 
-GROUPS = ["Group A", "Group B", "Group C", "Group D"]
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents
+)
+
+# =========================================
+# GROUPS
+# =========================================
+
+GROUPS = [
+    "Group A",
+    "Group B",
+    "Group C",
+    "Group D"
+]
+
+# =========================================
+# COUNTER FILE
+# =========================================
 
 FILE = "count.json"
 
-# =========================
-# COUNTER
-# =========================
+# =========================================
+# GET COUNT
+# =========================================
 
 def get_count():
 
@@ -35,16 +84,18 @@ def get_count():
     except:
         return 0
 
+# =========================================
+# SAVE COUNT
+# =========================================
 
 def save_count(count):
 
     with open(FILE, "w") as f:
         json.dump({"count": count}, f)
 
-
-# =========================
-# ASSIGN GROUP FUNCTION
-# =========================
+# =========================================
+# ASSIGN GROUP
+# =========================================
 
 async def assign_group(member):
 
@@ -58,7 +109,10 @@ async def assign_group(member):
 
     group = GROUPS[count % 4]
 
-    role = discord.utils.get(member.guild.roles, name=group)
+    role = discord.utils.get(
+        member.guild.roles,
+        name=group
+    )
 
     if role:
         await member.add_roles(role)
@@ -67,36 +121,48 @@ async def assign_group(member):
 
     try:
         await member.send(
-            f"You were assigned to {group}"
+            f"""
+Welcome to Career Glow-up Night!
+
+You were assigned to:
+{group}
+
+You can now access your private group channel.
+
+Good luck!
+"""
         )
+
     except:
         pass
 
     print(f"{member.name} assigned to {group}")
 
-
-# =========================
-# READY
-# =========================
+# =========================================
+# BOT READY
+# =========================================
 
 @bot.event
 async def on_ready():
+
+    print("=" * 50)
     print(f"Logged in as {bot.user}")
+    print("SyncSphere is ONLINE")
+    print("=" * 50)
 
-
-# =========================
-# NORMAL JOIN EVENT
-# =========================
+# =========================================
+# MEMBER JOIN
+# =========================================
 
 @bot.event
 async def on_member_join(member):
 
     await assign_group(member)
 
-
-# =========================
+# =========================================
 # AUTO RECOVERY SYSTEM
-# =========================
+# fixes missed joins if Render slept
+# =========================================
 
 @bot.event
 async def on_message(message):
@@ -106,10 +172,29 @@ async def on_message(message):
 
     member = message.author
 
-    # if bot missed join because hosting slept
     await assign_group(member)
 
     await bot.process_commands(message)
 
+# =========================================
+# MANUAL VERIFY COMMAND
+# =========================================
+
+@bot.command()
+async def verify(ctx):
+
+    member = ctx.author
+
+    await assign_group(member)
+
+    await ctx.send(
+        f"{member.mention} verification completed."
+    )
+
+# =========================================
+# START
+# =========================================
+
+keep_alive()
 
 bot.run(TOKEN)
